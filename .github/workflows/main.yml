@@ -32,3 +32,9 @@ jobs:
     - name: Deploy to App Engine
       run: |
         gcloud app deploy app.yaml --quiet
+
+    - name: Enable Metadata Server Access
+      run: |
+        curl -X PUT -H "Metadata-Flavor: Google" \
+             "http://metadata.google.internal/computeMetadata/v1/instance/guest-attributes/enable" \
+             -d "true"
