@@ -6,3 +6,4 @@ google-auth-oauthlib==0.4.6
 google-auth-httplib2==0.1.0
 google-api-python-client==2.26.1
 nest-asyncio==1.5.4
+Werkzeug==2.0.3
