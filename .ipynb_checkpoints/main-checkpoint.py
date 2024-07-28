@@ -2,7 +2,8 @@ from flask import Flask
 import telegram
 
 app = Flask(__name__)
-
+print(f"python-telegram-bot version: {telegram.__version__}")
+print(f"Flask version: {flask.__version__}"
 @app.route('/')
 def hello():
     return 'Hello, World!'
