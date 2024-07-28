@@ -1,16 +1,4 @@
-from flask import Flask
-import telegram
+from bot import run_bot
 
-app = Flask(__name__)
-print(f"python-telegram-bot version: {telegram.__version__}")
-print(f"Flask version: {flask.__version__}"
-@app.route('/')
-def hello():
-    return 'Hello, World!'
-
-@app.route('/version')
-def version():
-    return f'python-telegram-bot version: {telegram.__version__}'
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080)
+if __name__ == "__main__":
+    run_bot()
