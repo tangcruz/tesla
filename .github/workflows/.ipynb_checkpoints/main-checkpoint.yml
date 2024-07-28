@@ -3,7 +3,7 @@ name: Deploy to Google App Engine
 on:
   push:
     branches:
-      - main  # 在推送到 main 分支時觸發_
+      - main  # 在推送到 main 分支時觸發
 
 jobs:
   deploy:
@@ -13,12 +13,16 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v2
 
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v0
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+
     - name: Set up Cloud SDK
       uses: google-github-actions/setup-gcloud@v1
       with:
-        version: 'latest'
-        service_account_key: ${{ secrets.GCP_SA_KEY }}
-        project_id: YOUR_PROJECT_ID
+        project_id: cool-ruler-419911
+        install_components: app-engine-python
 
     - name: Deploy to App Engine
       run: |
