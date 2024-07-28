@@ -1,7 +1,5 @@
 import nest_asyncio
 import logging
-from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, MessageHandler, filters
-from handlers import start, button, handle_status_selection, handle_input
 
 # 设置日志级别
 logging.basicConfig(
@@ -9,6 +7,11 @@ logging.basicConfig(
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
+
+import telegram
+from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, MessageHandler, filters
+from handlers import start, button, handle_status_selection, handle_input
+
 
 def run_bot():
     nest_asyncio.apply()
