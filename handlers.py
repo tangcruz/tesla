@@ -70,6 +70,7 @@ async def handle_update_status(update: Update, context: ContextTypes.DEFAULT_TYP
         logger.warning("No car found with the given number for status update")
         await update.message.reply_text("沒有找到相關車輛，請重新輸入車號:")
 
+
 # Handle status selection
 async def handle_status_selection(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
