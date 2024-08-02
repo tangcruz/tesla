@@ -17,4 +17,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 # ENV PORT 8080
 
 # 启动应用
-CMD ["python", "main.py"]
+CMD ["python", "bot.py"]
