@@ -7,6 +7,24 @@ from update_status_handlers import handle_update_status, update_status, handle_u
 from handlers import button, handle_input
 from google_sheets import read_sheet, update_sheet
 from parameterized import parameterized
+import random
+import itertools
+
+def generate_button_combinations(n=1000):
+    buttons = ['query_status', 'query_all', 'query_all_locations', 'query_by_car_number', 
+               'query_by_status', 'query_by_unit', 'update_status', 
+               'update_status_selection', 'update_location_selection']
+    
+    # Generate all possible pairs of buttons
+    all_pairs = list(itertools.product(buttons, repeat=2))
+    
+    # If we have less than n pairs, repeat the list
+    while len(all_pairs) < n:
+        all_pairs.extend(all_pairs)
+    
+    # Shuffle and slice to get exactly n combinations
+    random.shuffle(all_pairs)
+    return all_pairs[:n]
 
 def async_test(coro):
     def wrapper(*args, **kwargs):
