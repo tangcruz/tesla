@@ -1,4 +1,3 @@
-# /Users/sulaxd/Documents/Tesla/handlers.py
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
@@ -8,18 +7,19 @@ from update_status_handlers import update_status, handle_update_status, handle_u
 
 logger = logging.getLogger(__name__)
 
+KEYBOARD = [
+    [InlineKeyboardButton("查詢車輛狀態", callback_data='query_status')],
+    [InlineKeyboardButton("查詢所有車輛", callback_data='query_all')],
+    [InlineKeyboardButton("查詢所有車輛位置", callback_data='query_all_locations')],
+    [InlineKeyboardButton("查詢特定車輛位置", callback_data='query_by_car_number')],
+    [InlineKeyboardButton("查詢特定狀態的車輛", callback_data='query_by_status')],
+    [InlineKeyboardButton("查詢特定單位的車輛", callback_data='query_by_unit')],
+    [InlineKeyboardButton("更新車輛狀態或位置", callback_data='update_status')]
+]
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.info("Start command received")
-    keyboard = [
-        [InlineKeyboardButton("查詢車輛狀態", callback_data='query_status')],
-        [InlineKeyboardButton("查詢所有車輛", callback_data='query_all')],
-        [InlineKeyboardButton("查詢所有車輛位置", callback_data='query_all_locations')],
-        [InlineKeyboardButton("查詢特定車輛位置", callback_data='query_by_car_number')],
-        [InlineKeyboardButton("查詢特定狀態的車輛", callback_data='query_by_status')],
-        [InlineKeyboardButton("查詢特定單位的車輛", callback_data='query_by_unit')],
-        [InlineKeyboardButton("更新車輛狀態或位置", callback_data='update_status')]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
+    reply_markup = InlineKeyboardMarkup(KEYBOARD)
     await update.message.reply_text("請選擇一個操作:", reply_markup=reply_markup)
 
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -64,13 +64,10 @@ async def handle_input(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         elif operation == 'update_status':
             if 'car_number' not in context.user_data:
                 await handle_update_status(update, context)
-            elif 'status' not in context.user_data:
-                if context.user_data.get('action') == 'update_location':
-                    context.user_data['new_location'] = update.message.text
-                    await update_status(update, context)
-                else:
-                    context.user_data['new_status'] = update.message.text
-                    await update_status(update, context)
+            else:
+                action = context.user_data.get('action', 'update_status')
+                context.user_data[f'new_{action.split("_")[1]}'] = update.message.text
+                await update_status(update, context)
         elif operation == 'query_by_status':
             context.user_data['status_query'] = update.message.text
             await query_by_status(update, context)

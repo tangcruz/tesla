@@ -1,11 +1,14 @@
-# /Users/sulaxd/Documents/Tesla/update_status_handlers.py
-
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from google_sheets import read_sheet, update_sheet
 
 logger = logging.getLogger(__name__)
+
+UPDATE_KEYBOARD = [
+    [InlineKeyboardButton("更改狀態", callback_data='update_status_selection')],
+    [InlineKeyboardButton("更改位置", callback_data='update_location_selection')]
+]
 
 async def handle_update_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     car_number = update.message.text
@@ -21,11 +24,7 @@ async def handle_update_status(update: Update, context: ContextTypes.DEFAULT_TYP
         
         if row_number:
             context.user_data['row_number'] = row_number
-            keyboard = [
-                [InlineKeyboardButton("更改狀態", callback_data='update_status_selection')],
-                [InlineKeyboardButton("更改位置", callback_data='update_location_selection')]
-            ]
-            reply_markup = InlineKeyboardMarkup(keyboard)
+            reply_markup = InlineKeyboardMarkup(UPDATE_KEYBOARD)
             logger.info("Sending update options to the user")
             await update.message.reply_text("請選擇要更新的內容:", reply_markup=reply_markup)
         else:
@@ -74,7 +73,6 @@ async def update_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         logger.error(f"Error in update_status: {str(e)}")
         await update.message.reply_text("更新狀態或位置時發生錯誤，請稍後再試。")
 
-# Add this new function to handle callback queries
 async def handle_update_selection(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
