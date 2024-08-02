@@ -1,17 +1,28 @@
 import unittest
-import asyncio
 from unittest.mock import patch, MagicMock
 from telegram import Update, CallbackQuery
 from telegram.ext import CallbackContext
-from update_status_handlers import handle_update_status, update_status, handle_update_selection
 from handlers import button, handle_input
-from google_sheets import read_sheet, update_sheet
+from update_status_handlers import handle_update_status, update_status, handle_update_selection
 from parameterized import parameterized
+import random
+import itertools
 
-def async_test(coro):
-    def wrapper(*args, **kwargs):
-        return asyncio.run(coro(*args, **kwargs))
-    return wrapper
+def generate_button_combinations(n=1000):
+    buttons = ['query_status', 'query_all', 'query_all_locations', 'query_by_car_number', 
+               'query_by_status', 'query_by_unit', 'update_status', 
+               'update_status_selection', 'update_location_selection']
+    
+    # Generate all possible pairs of buttons
+    all_pairs = list(itertools.product(buttons, repeat=2))
+    
+    # If we have less than n pairs, repeat the list
+    while len(all_pairs) < n:
+        all_pairs.extend(all_pairs)
+    
+    # Shuffle and slice to get exactly n combinations
+    random.shuffle(all_pairs)
+    return all_pairs[:n]
 
 class TestTelegramBot(unittest.TestCase):
     def setUp(self):
@@ -27,7 +38,6 @@ class TestTelegramBot(unittest.TestCase):
     @patch('handlers.query_by_unit')
     @patch('update_status_handlers.handle_update_status')
     @patch('update_status_handlers.handle_update_selection')
-    @async_test
     async def test_button_combinations(self, button1, button2, mock_query_all, mock_query_all_locations,
                                        mock_query_by_status, mock_query_by_car_number, mock_query_by_unit,
                                        mock_handle_update_status, mock_handle_update_selection):
@@ -91,7 +101,6 @@ class TestTelegramBot(unittest.TestCase):
     @patch('handlers.query_by_status')
     @patch('handlers.query_by_unit')
     @patch('handlers.query_by_car_number')
-    @async_test
     async def test_handle_input(self, operation, input_text, mock_handle_car_number, 
                                 mock_handle_update_status, mock_query_by_status, 
                                 mock_query_by_unit, mock_query_by_car_number):

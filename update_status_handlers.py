@@ -5,11 +5,6 @@ from google_sheets import read_sheet, update_sheet
 
 logger = logging.getLogger(__name__)
 
-UPDATE_KEYBOARD = [
-    [InlineKeyboardButton("更改狀態", callback_data='update_status_selection')],
-    [InlineKeyboardButton("更改位置", callback_data='update_location_selection')]
-]
-
 async def handle_update_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     car_number = update.message.text
     logger.info(f"Handling status update for car number: {car_number}")
@@ -24,7 +19,11 @@ async def handle_update_status(update: Update, context: ContextTypes.DEFAULT_TYP
         
         if row_number:
             context.user_data['row_number'] = row_number
-            reply_markup = InlineKeyboardMarkup(UPDATE_KEYBOARD)
+            keyboard = [
+                [InlineKeyboardButton("更改狀態", callback_data='update_status_selection')],
+                [InlineKeyboardButton("更改位置", callback_data='update_location_selection')]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
             logger.info("Sending update options to the user")
             await update.message.reply_text("請選擇要更新的內容:", reply_markup=reply_markup)
         else:

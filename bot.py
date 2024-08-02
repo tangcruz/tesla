@@ -1,9 +1,8 @@
 import logging
-import os
-from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, MessageHandler, filters
 from handlers import start, button, handle_input
 from dotenv import load_dotenv
+import os
 
 # Load environment variables from .env file
 load_dotenv()
@@ -15,6 +14,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Initialize bot with your token
 def run_bot(token: str) -> None:
     application = ApplicationBuilder().token(token).build()
     
@@ -27,6 +27,7 @@ def run_bot(token: str) -> None:
     logger.info("Starting the bot")
     application.run_polling()
 
+# Main entry point
 if __name__ == "__main__":
     token = os.getenv("TELEGRAM_BOT_TOKEN")
     if not token:

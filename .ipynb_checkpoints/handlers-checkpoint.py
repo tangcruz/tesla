@@ -19,8 +19,14 @@ KEYBOARD = [
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.info("Start command received")
+    await show_main_menu(update, context)
+
+async def show_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     reply_markup = InlineKeyboardMarkup(KEYBOARD)
-    await update.message.reply_text("請選擇一個操作:", reply_markup=reply_markup)
+    if update.callback_query:
+        await update.callback_query.message.edit_text("請選擇一個操作:", reply_markup=reply_markup)
+    else:
+        await update.message.reply_text("請選擇一個操作:", reply_markup=reply_markup)
 
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
@@ -53,6 +59,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     else:
         logger.warning(f"Unhandled callback query: {query.data}")
         await query.message.reply_text("無效的操作，請重新選擇。")
+        await show_main_menu(update, context)
 
 async def handle_input(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     operation = context.user_data.get('operation')
@@ -64,10 +71,12 @@ async def handle_input(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         elif operation == 'update_status':
             if 'car_number' not in context.user_data:
                 await handle_update_status(update, context)
-            else:
-                action = context.user_data.get('action', 'update_status')
-                context.user_data[f'new_{action.split("_")[1]}'] = update.message.text
+            elif 'action' in context.user_data:
                 await update_status(update, context)
+            else:
+                logger.warning("Unexpected state in update_status operation")
+                await update.message.reply_text("發生錯誤，請重新開始更新流程。")
+                await show_main_menu(update, context)
         elif operation == 'query_by_status':
             context.user_data['status_query'] = update.message.text
             await query_by_status(update, context)
@@ -80,6 +89,8 @@ async def handle_input(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         else:
             logger.warning(f"Unhandled operation: {operation}")
             await update.message.reply_text("無效的操作，請重新選擇。")
+            await show_main_menu(update, context)
     except Exception as e:
         logger.error(f"Error in handle_input: {str(e)}")
         await update.message.reply_text("處理您的輸入時發生錯誤，請稍後再試。")
+        await show_main_menu(update, context)

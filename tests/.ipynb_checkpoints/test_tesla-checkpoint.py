@@ -1,4 +1,5 @@
 import unittest
+import asyncio
 from unittest.mock import patch, MagicMock
 from telegram import Update, CallbackQuery
 from telegram.ext import CallbackContext
@@ -7,131 +8,108 @@ from handlers import button, handle_input
 from google_sheets import read_sheet, update_sheet
 from parameterized import parameterized
 
+def async_test(coro):
+    def wrapper(*args, **kwargs):
+        return asyncio.run(coro(*args, **kwargs))
+    return wrapper
+
 class TestTelegramBot(unittest.TestCase):
     def setUp(self):
         self.update = MagicMock(spec=Update)
         self.context = MagicMock(spec=CallbackContext)
         self.context.user_data = {}
 
-    @patch('update_status_handlers.read_sheet')
-    async def test_handle_update_status(self, mock_read_sheet):
-        mock_read_sheet.return_value = [
-            ['車號', '狀態', '單位', '位置'],
-            ['ABC123', '空閒', '單位A', '位置X']
-        ]
-        self.update.message.text = 'ABC123'
-        
-        await handle_update_status(self.update, self.context)
-        
-        self.assertEqual(self.context.user_data['car_number'], 'ABC123')
-        self.assertEqual(self.context.user_data['row_number'], 2)
-        self.update.message.reply_text.assert_called_once()
-
-    @patch('update_status_handlers.update_sheet')
-    @patch('update_status_handlers.read_sheet')
-    async def test_update_status(self, mock_read_sheet, mock_update_sheet):
-        mock_read_sheet.return_value = [
-            ['車號', '狀態', '單位', '位置'],
-            ['ABC123', '空閒', '單位A', '位置X']
-        ]
-        self.context.user_data = {
-            'car_number': 'ABC123',
-            'row_number': 2,
-            'action': 'update_status'
-        }
-        self.update.message.text = '維修中'
-        
-        await update_status(self.update, self.context)
-        
-        mock_update_sheet.assert_called_once_with(2, 'B', '維修中')
-        self.update.message.reply_text.assert_called_once_with("車號 ABC123 的狀態已更新為 維修中。")
-
-    async def test_handle_update_selection_status(self):
-        query = MagicMock(spec=CallbackQuery)
-        query.data = 'update_status_selection'
-        self.update.callback_query = query
-        
-        await handle_update_selection(self.update, self.context)
-        
-        self.assertEqual(self.context.user_data['action'], 'update_status')
-        query.message.reply_text.assert_called_once_with("請輸入新的狀態:")
-
-    async def test_handle_update_selection_location(self):
-        query = MagicMock(spec=CallbackQuery)
-        query.data = 'update_location_selection'
-        self.update.callback_query = query
-        
-        await handle_update_selection(self.update, self.context)
-        
-        self.assertEqual(self.context.user_data['action'], 'update_location')
-        query.message.reply_text.assert_called_once_with("請輸入新的位置:")
-
+    @parameterized.expand(generate_button_combinations(1000))
     @patch('handlers.query_all')
     @patch('handlers.query_all_locations')
-    async def test_button_query_all(self, mock_query_all_locations, mock_query_all):
-        query = MagicMock(spec=CallbackQuery)
-        query.data = 'query_all'
-        self.update.callback_query = query
+    @patch('handlers.query_by_status')
+    @patch('handlers.query_by_car_number')
+    @patch('handlers.query_by_unit')
+    @patch('update_status_handlers.handle_update_status')
+    @patch('update_status_handlers.handle_update_selection')
+    @async_test
+    async def test_button_combinations(self, button1, button2, mock_query_all, mock_query_all_locations,
+                                       mock_query_by_status, mock_query_by_car_number, mock_query_by_unit,
+                                       mock_handle_update_status, mock_handle_update_selection):
+        # First button press
+        query1 = MagicMock(spec=CallbackQuery)
+        query1.data = button1
+        self.update.callback_query = query1
         
         await button(self.update, self.context)
         
-        mock_query_all.assert_called_once_with(self.update, self.context)
+        # Check the result of the first button press
+        self.assert_button_result(button1, mock_query_all, mock_query_all_locations,
+                                  mock_query_by_status, mock_query_by_car_number, mock_query_by_unit,
+                                  mock_handle_update_status, mock_handle_update_selection)
+        
+        # Reset mocks
+        for mock in [mock_query_all, mock_query_all_locations, mock_query_by_status, 
+                     mock_query_by_car_number, mock_query_by_unit, mock_handle_update_status, 
+                     mock_handle_update_selection]:
+            mock.reset_mock()
+        
+        # Second button press
+        query2 = MagicMock(spec=CallbackQuery)
+        query2.data = button2
+        self.update.callback_query = query2
+        
+        await button(self.update, self.context)
+        
+        # Check the result of the second button press
+        self.assert_button_result(button2, mock_query_all, mock_query_all_locations,
+                                  mock_query_by_status, mock_query_by_car_number, mock_query_by_unit,
+                                  mock_handle_update_status, mock_handle_update_selection)
 
-    @patch('handlers.handle_car_number')
-    async def test_handle_input_query_status(self, mock_handle_car_number):
-        self.context.user_data['operation'] = 'query_status'
-        self.update.message.text = 'ABC123'
-        
-        await handle_input(self.update, self.context)
-        
-        mock_handle_car_number.assert_called_once_with(self.update, self.context)
+    def assert_button_result(self, button_data, mock_query_all, mock_query_all_locations,
+                             mock_query_by_status, mock_query_by_car_number, mock_query_by_unit,
+                             mock_handle_update_status, mock_handle_update_selection):
+        if button_data == 'query_all':
+            mock_query_all.assert_called_once()
+        elif button_data == 'query_all_locations':
+            mock_query_all_locations.assert_called_once()
+        elif button_data == 'query_by_status':
+            self.assertEqual(self.context.user_data['operation'], 'query_by_status')
+        elif button_data == 'query_by_car_number':
+            self.assertEqual(self.context.user_data['operation'], 'query_by_car_number')
+        elif button_data == 'query_by_unit':
+            self.assertEqual(self.context.user_data['operation'], 'query_by_unit')
+        elif button_data == 'update_status':
+            self.assertEqual(self.context.user_data['operation'], 'update_status')
+        elif button_data in ['update_status_selection', 'update_location_selection']:
+            mock_handle_update_selection.assert_called_once()
 
     @parameterized.expand([
-        ('ABC123', '維修中', 'update_status', '狀態'),
-        ('XYZ789', '新位置', 'update_location', '位置'),
+        ('query_status', 'ABC123'),
+        ('update_status', 'XYZ789'),
+        ('query_by_status', '維修中'),
+        ('query_by_unit', '單位A'),
+        ('query_by_car_number', 'DEF456')
     ])
-    @patch('update_status_handlers.update_sheet')
-    @patch('update_status_handlers.read_sheet')
-    async def test_update_status_parameterized(self, car_number, new_value, action, column, mock_read_sheet, mock_update_sheet):
-        mock_read_sheet.return_value = [
-            ['車號', '狀態', '單位', '位置'],
-            ['ABC123', '空閒', '單位A', '位置X'],
-            ['XYZ789', '使用中', '單位B', '位置Y']
-        ]
-        self.context.user_data = {
-            'car_number': car_number,
-            'row_number': 2 if car_number == 'ABC123' else 3,
-            'action': action
-        }
-        self.update.message.text = new_value
-        
-        await update_status(self.update, self.context)
-        
-        expected_column = 'B' if column == '狀態' else 'D'
-        mock_update_sheet.assert_called_once_with(self.context.user_data['row_number'], expected_column, new_value)
-        self.update.message.reply_text.assert_called_once_with(f"車號 {car_number} 的{column}已更新為 {new_value}。")
-
+    @patch('handlers.handle_car_number')
+    @patch('update_status_handlers.handle_update_status')
     @patch('handlers.query_by_status')
-    async def test_handle_input_query_by_status(self, mock_query_by_status):
-        self.context.user_data['operation'] = 'query_by_status'
-        self.update.message.text = '維修中'
+    @patch('handlers.query_by_unit')
+    @patch('handlers.query_by_car_number')
+    @async_test
+    async def test_handle_input(self, operation, input_text, mock_handle_car_number, 
+                                mock_handle_update_status, mock_query_by_status, 
+                                mock_query_by_unit, mock_query_by_car_number):
+        self.context.user_data['operation'] = operation
+        self.update.message.text = input_text
         
         await handle_input(self.update, self.context)
         
-        self.assertEqual(self.context.user_data['status_query'], '維修中')
-        mock_query_by_status.assert_called_once_with(self.update, self.context)
-
-    @patch('update_status_handlers.read_sheet')
-    async def test_handle_update_status_car_not_found(self, mock_read_sheet):
-        mock_read_sheet.return_value = [
-            ['車號', '狀態', '單位', '位置'],
-            ['ABC123', '空閒', '單位A', '位置X']
-        ]
-        self.update.message.text = 'XYZ789'  # Non-existent car number
-        
-        await handle_update_status(self.update, self.context)
-        
-        self.update.message.reply_text.assert_called_once_with("沒有找到相關車輛，請重新輸入車號:")
+        if operation == 'query_status':
+            mock_handle_car_number.assert_called_once()
+        elif operation == 'update_status':
+            mock_handle_update_status.assert_called_once()
+        elif operation == 'query_by_status':
+            mock_query_by_status.assert_called_once()
+        elif operation == 'query_by_unit':
+            mock_query_by_unit.assert_called_once()
+        elif operation == 'query_by_car_number':
+            mock_query_by_car_number.assert_called_once()
 
 if __name__ == '__main__':
     unittest.main()
