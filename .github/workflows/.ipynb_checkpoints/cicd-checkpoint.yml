@@ -13,42 +13,22 @@ jobs:
     env:
       PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
       GCE_INSTANCE: instance-20240529-070416
-      GCE_INSTANCE_ZONE: asia-east1-b  # 替換為您的實例所在的區域
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v2
+    # ... (previous steps remain the same)
 
-    - name: Setup Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: '3.9'
-
-    - name: Install dependencies
+    - name: Get instance zone
       run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-
-    - name: Run tests
-      run: python -m unittest discover tests
-
-    - name: Setup gcloud CLI
-      uses: google-github-actions/setup-gcloud@v0.2.0
-      with:
-        service_account_key: ${{ secrets.GCP_SA_KEY }}
-        project_id: ${{ secrets.GCP_PROJECT_ID }}
-
-    - name: Configure SSH
-      run: |
-        mkdir -p ~/.ssh
-        echo "${{ secrets.GCP_SSH_PRIVATE_KEY }}" > ~/.ssh/google_compute_engine
-        chmod 600 ~/.ssh/google_compute_engine
-        echo "${{ secrets.GCP_SSH_PUBLIC_KEY }}" > ~/.ssh/google_compute_engine.pub
+        ZONE=$(gcloud compute instances list --filter="name=${{ env.GCE_INSTANCE }}" --format="get(zone)" --quiet)
+        echo "GCE_INSTANCE_ZONE=$ZONE" >> $GITHUB_ENV
 
     - name: Deploy to Compute Engine
       run: |
-        gcloud compute scp --recurse --zone=${{ env.GCE_INSTANCE_ZONE }} ./* ${{ env.GCE_INSTANCE }}:/home/cruz/telegram-bot
+        gcloud compute scp --recurse --zone=${{ env.GCE_INSTANCE_ZONE }} ./* ${{ env.GCE_INSTANCE }}:/tmp/telegram-bot-temp
         gcloud compute ssh --zone=${{ env.GCE_INSTANCE_ZONE }} ${{ env.GCE_INSTANCE }} --command="
+          sudo rm -rf /home/cruz/telegram-bot
+          sudo mv /tmp/telegram-bot-temp /home/cruz/telegram-bot
+          sudo chown -R cruz:cruz /home/cruz/telegram-bot
           cd /home/cruz/telegram-bot &&
           sudo docker build -t telegram-bot . &&
           sudo docker stop telegram-bot-container || true &&
