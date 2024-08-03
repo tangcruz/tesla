@@ -13,6 +13,7 @@ jobs:
     env:
       PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
       GCE_INSTANCE: instance-20240529-070416
+      GCE_INSTANCE_ZONE: asia-east1-b  # 直接設置區域
 
     steps:
     - name: Checkout
@@ -39,30 +40,29 @@ jobs:
 
     - name: Configure gcloud Auth
       run: |
-        echo '${{ secrets.GCP_SA_KEY }}' | base64 -d > /tmp/sa_key.json
+        echo '${{ secrets.GCP_SA_KEY }}' > /tmp/sa_key.json
         gcloud auth activate-service-account --key-file=/tmp/sa_key.json
         gcloud config set project ${{ secrets.GCP_PROJECT_ID }}
-    - name: Debug Base64
-      run: |
-        echo "First 10 characters of GCP_SA_KEY:"
-        echo '${{ secrets.GCP_SA_KEY }}' | cut -c1-10
-        echo "Attempting to decode:"
-        echo '${{ secrets.GCP_SA_KEY }}' | base64 -d | head -n 1
-    - name: Get instance zone
-      run: |
-        ZONE=$(gcloud compute instances list --filter="name=${{ env.GCE_INSTANCE }}" --format="get(zone)" --quiet)
-        echo "GCE_INSTANCE_ZONE=$ZONE" >> $GITHUB_ENV
 
-    - name: Configure SSH
+    - name: Verify and set GCE instance zone
       run: |
-        mkdir -p ~/.ssh
-        echo "${{ secrets.GCP_SSH_PRIVATE_KEY }}" > ~/.ssh/google_compute_engine
-        chmod 600 ~/.ssh/google_compute_engine
-        echo "${{ secrets.GCP_SSH_PUBLIC_KEY }}" > ~/.ssh/google_compute_engine.pub
+        ZONE=$(gcloud compute instances list --filter="name=${{ env.GCE_INSTANCE }}" --format="get(zone)")
+        if [ -z "$ZONE" ]; then
+          echo "Error: Could not find zone for instance ${{ env.GCE_INSTANCE }}"
+          exit 1
+        fi
+        echo "GCE_INSTANCE_ZONE=$ZONE" >> $GITHUB_ENV
+        echo "Instance zone: $ZONE"
 
     - name: Deploy to Compute Engine
       run: |
+        # Create temporary directory
+        gcloud compute ssh --zone=${{ env.GCE_INSTANCE_ZONE }} ${{ env.GCE_INSTANCE }} --command="mkdir -p /tmp/telegram-bot-temp"
+        
+        # Copy files
         gcloud compute scp --recurse --zone=${{ env.GCE_INSTANCE_ZONE }} ./* ${{ env.GCE_INSTANCE }}:/tmp/telegram-bot-temp
+        
+        # Run deployment commands
         gcloud compute ssh --zone=${{ env.GCE_INSTANCE_ZONE }} ${{ env.GCE_INSTANCE }} --command="
           sudo rm -rf /home/cruz/telegram-bot
           sudo mv /tmp/telegram-bot-temp /home/cruz/telegram-bot
