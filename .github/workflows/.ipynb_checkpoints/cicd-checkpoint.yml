@@ -65,20 +65,57 @@ jobs:
         
         # Run deployment commands
         gcloud compute ssh --zone=${{ env.GCE_INSTANCE_ZONE }} ${{ env.GCE_INSTANCE }} --command="
+          set -e
+          echo 'Starting deployment process...'
+          
+          # Remove old directory and move new files
           sudo rm -rf /home/cruz/telegram-bot
           sudo mv /tmp/telegram-bot-temp /home/cruz/telegram-bot
+          
+          # Set correct permissions
           sudo chown -R cruz:cruz /home/cruz/telegram-bot
           sudo chmod -R 755 /home/cruz/telegram-bot
-          cd /home/cruz/telegram-bot &&
-          sudo -u cruz docker build -t telegram-bot . || sudo docker build -t telegram-bot . &&
-          sudo docker stop telegram-bot-container || true &&
-          sudo docker rm telegram-bot-container || true &&
-          sudo -u cruz docker run -d --name telegram-bot-container \
+          
+          # Check if Dockerfile exists
+          if [ ! -f /home/cruz/telegram-bot/Dockerfile ]; then
+            echo 'Error: Dockerfile not found'
+            exit 1
+          fi
+          
+          # Build Docker image
+          cd /home/cruz/telegram-bot
+          if sudo -u cruz docker build -t telegram-bot .; then
+            echo 'Docker image built successfully as cruz user'
+          else
+            echo 'Building Docker image as root...'
+            sudo docker build -t telegram-bot .
+          fi
+          
+          # Stop and remove old container
+          sudo docker stop telegram-bot-container || true
+          sudo docker rm -f telegram-bot-container || true
+          
+          # Run new container
+          if sudo -u cruz docker run -d --name telegram-bot-container \
             -e TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }} \
             -e GOOGLE_SPREADSHEET_ID=${{ secrets.GOOGLE_SPREADSHEET_ID }} \
-            telegram-bot || \
-          sudo docker run -d --name telegram-bot-container \
-            -e TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }} \
-            -e GOOGLE_SPREADSHEET_ID=${{ secrets.GOOGLE_SPREADSHEET_ID }} \
-            telegram-bot
+            --restart unless-stopped \
+            telegram-bot; then
+            echo 'Container started successfully as cruz user'
+          else
+            echo 'Starting container as root...'
+            sudo docker run -d --name telegram-bot-container \
+              -e TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }} \
+              -e GOOGLE_SPREADSHEET_ID=${{ secrets.GOOGLE_SPREADSHEET_ID }} \
+              --restart unless-stopped \
+              telegram-bot
+          fi
+          
+          echo 'Deployment completed successfully'
         "
+    - name: Debug
+      run: |
+        echo "Current directory contents:"
+        ls -la
+        echo "Dockerfile contents:"
+        cat Dockerfile
