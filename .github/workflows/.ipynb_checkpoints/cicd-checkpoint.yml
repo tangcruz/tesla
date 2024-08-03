@@ -10,6 +10,11 @@ jobs:
   deploy:
     name: Deploy to GCE
     runs-on: ubuntu-latest
+    env:
+      PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+      GCE_INSTANCE: instance-20240529-070416
+      GCE_INSTANCE_ZONE: us-central1-a  # 替換為您的實例所在的區域
+
     steps:
     - name: Checkout
       uses: actions/checkout@v2
@@ -33,10 +38,17 @@ jobs:
         service_account_key: ${{ secrets.GCP_SA_KEY }}
         project_id: ${{ secrets.GCP_PROJECT_ID }}
 
+    - name: Configure SSH
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.GCP_SSH_PRIVATE_KEY }}" > ~/.ssh/google_compute_engine
+        chmod 600 ~/.ssh/google_compute_engine
+        echo "${{ secrets.GCP_SSH_PUBLIC_KEY }}" > ~/.ssh/google_compute_engine.pub
+
     - name: Deploy to Compute Engine
       run: |
-        gcloud compute scp --recurse ./* instance-20240529-070416:/home/cruz/telegram-bot
-        gcloud compute ssh instance-20240529-070416 --command="
+        gcloud compute scp --recurse --zone=${{ env.GCE_INSTANCE_ZONE }} ./* ${{ env.GCE_INSTANCE }}:/home/cruz/telegram-bot
+        gcloud compute ssh --zone=${{ env.GCE_INSTANCE_ZONE }} ${{ env.GCE_INSTANCE }} --command="
           cd /home/cruz/telegram-bot &&
           sudo docker build -t telegram-bot . &&
           sudo docker stop telegram-bot-container || true &&
