@@ -1,4 +1,4 @@
-name: CI/CD to Google Cloud Run
+name: CI/CD to Google Compute Engine
 
 on:
   push:
@@ -8,10 +8,8 @@ on:
 
 jobs:
   deploy:
-    name: Setup Gcloud Account
+    name: Deploy to GCE
     runs-on: ubuntu-latest
-    env:
-      IMAGE_NAME: gcr.io/${{ secrets.GCP_PROJECT_ID }}/tesla-bot
     steps:
     - name: Checkout
       uses: actions/checkout@v2
@@ -35,20 +33,16 @@ jobs:
         service_account_key: ${{ secrets.GCP_SA_KEY }}
         project_id: ${{ secrets.GCP_PROJECT_ID }}
 
-    - name: Configure Docker
-      run: gcloud auth configure-docker --quiet
-
-    - name: Build Docker image
-      run: docker build -t $IMAGE_NAME .
-
-    - name: Push Docker image to GCR
-      run: docker push $IMAGE_NAME
-
-    - name: Deploy to Cloud Run
+    - name: Deploy to Compute Engine
       run: |
-        gcloud run deploy tesla-bot \
-          --image $IMAGE_NAME \
-          --platform managed \
-          --region asia-east1 \
-          --allow-unauthenticated \
-          --set-env-vars "TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }},GOOGLE_SPREADSHEET_ID=${{ secrets.GOOGLE_SPREADSHEET_ID }}"    
+        gcloud compute scp --recurse ./* instance-20240529-070416:/home/cruz/telegram-bot
+        gcloud compute ssh instance-20240529-070416 --command="
+          cd /home/cruz/telegram-bot &&
+          sudo docker build -t telegram-bot . &&
+          sudo docker stop telegram-bot-container || true &&
+          sudo docker rm telegram-bot-container || true &&
+          sudo docker run -d --name telegram-bot-container \
+            -e TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }} \
+            -e GOOGLE_SPREADSHEET_ID=${{ secrets.GOOGLE_SPREADSHEET_ID }} \
+            telegram-bot
+        "

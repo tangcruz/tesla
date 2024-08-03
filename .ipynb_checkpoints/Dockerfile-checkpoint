@@ -16,8 +16,5 @@ COPY . .
 # Run tests
 RUN python -m unittest discover tests
 
-# Make port 80 available to the world outside this container
-EXPOSE 80
-
 # Run bot.py when the container launches
 CMD ["python", "bot.py"]
