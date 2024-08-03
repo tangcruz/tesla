@@ -13,7 +13,7 @@ jobs:
     env:
       PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
       GCE_INSTANCE: instance-20240529-070416
-      GCE_INSTANCE_ZONE: us-central1-a  # 替換為您的實例所在的區域
+      GCE_INSTANCE_ZONE: asia-east1-b  # 替換為您的實例所在的區域
 
     steps:
     - name: Checkout
