@@ -16,7 +16,7 @@ async def handle_update_status(update: Update, context: ContextTypes.DEFAULT_TYP
         car_number_index = header.index('車號')
         
         row_number = next((data.index(row) + 1 for row in data if row[car_number_index] == car_number), None)
-        
+        logger.info(f"row_num:{row_number}, {header}, car_number_index: {car_number_index}, data:{data}")        
         if row_number:
             context.user_data['row_number'] = row_number
             keyboard = [

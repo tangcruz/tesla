@@ -69,6 +69,8 @@ async def handle_input(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         if operation == 'query_status':
             await handle_car_number(update, context)
         elif operation == 'update_status':
+            # 清理可能衝突的車號資料，避免查詢操作的殘留資料影響更新狀態
+            context.user_data.pop('car_number_query', None)
             if 'car_number' not in context.user_data:
                 await handle_update_status(update, context)
             elif 'action' in context.user_data:
